@@ -34,8 +34,8 @@ public class UniqueTimestampGenerator {
 			was = ts.get();
 			++tries;
 			if (now <= was) {
-				// timestamp collision; force increment; this is the only special case
-				// why test < ? Because the faked millis will advance faster than the wall clock
+				// timestamp collided on an already used millisecond. increment to avoid. this is the only special case.
+				// why test < ? Because the faked millis could easily advance faster than the wall clock
 				now = was+1;
 			}
 			success = ts.compareAndSet(was,now);
