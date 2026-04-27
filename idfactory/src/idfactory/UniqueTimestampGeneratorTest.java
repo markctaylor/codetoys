@@ -3,8 +3,8 @@ package idfactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -21,7 +21,7 @@ class UniqueTimestampGeneratorTest {
 	
 	@BeforeAll
 	static void setupOnce() {
-	    countMap = new HashMap<>(100000);
+	    countMap = new ConcurrentHashMap<>(100000);
 	}
 
 	// this AfterAll method is actually a test itself, looking through the accumulated IDs
