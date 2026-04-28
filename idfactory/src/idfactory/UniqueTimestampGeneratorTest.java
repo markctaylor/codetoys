@@ -9,51 +9,41 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class UniqueTimestampGeneratorTest {
 
 	// This accumulates all IDs generated across all tests so id reuse (collisions) can be detected at the end
-	static Map<Long, Integer> countMap;
+	static Map<Long, Integer> countMap = new ConcurrentHashMap<>(100000);
+	static AtomicInteger invocations = new AtomicInteger(0);
 	
-	@BeforeAll
-	static void setupOnce() {
-	    countMap = new ConcurrentHashMap<>(100000);
-	}
-
 	// this AfterAll method is actually a test itself, looking through the accumulated IDs
 	// for any that were seen more than once.
 	@AfterAll
 	static void summarizeAndAssertOverallSuccessCriteria() {
 		System.out.println("Looking for collisions");
 		for ( Integer value : countMap.values() ) {
-			assertEquals(1, value.intValue(), "no key should have appeared more than once");
+			assertEquals(1, value.intValue(), "no key should have been seen more than once");
 		}
+		assertEquals(invocations.get(), countMap.size(), "Map size should equal invocation counter");
 		System.out.println("No collisions found");
 	}
 
 	@Test
 	void testOne() {
-		// this is the entire calling convention for the unique timestamp/long/ID generation utility
-		long ts = UniqueTimestampGenerator.get();
-		
+		long ts = getTsAndAccumulate();
 		assertTrue(ts > 0, "A value was generated");
 	}
 	
 	@Test
 	void testLinearHighSpeedAllocation() {
-		long last, ts = 0;
-		
+		long last, ts = 0;	
 		for (int i=0; i<10000; i++) {
 			last = ts;
-			ts = UniqueTimestampGenerator.get();
-			
-			// accumulates the ID for later collision detection
-			countMap.merge(ts, 1, Integer::sum);
-
+			ts = getTsAndAccumulate();
 			assertTrue(ts>last, "new ts should always be greater than previous ts");
 		}
 		System.out.println("Final ts served by single threaded test: "+ts);
@@ -78,5 +68,23 @@ class UniqueTimestampGeneratorTest {
         future5.get();
 
         System.out.println("Multi-threaded test completed at: "+System.currentTimeMillis());
+        // assertions for this test will be checked in the AfterAll method
+	}
+	
+	// This should be the ONLY place in the test class where the direct call to the utility is made
+	// so that each call can be recorded for later analysis
+	private long getTsAndAccumulate() {
+		
+		// generate next unique value
+		// this one line is the entire calling convention for the unique timestamp/long/ID generator
+		long ts = UniqueTimestampGenerator.get();
+		
+		// accumulate this invocation
+		invocations.addAndGet(1);
+
+		// accumulate the generated value in a Map for later collision detection
+		countMap.merge(ts, 1, Integer::sum);
+
+		return ts;
 	}
 }
